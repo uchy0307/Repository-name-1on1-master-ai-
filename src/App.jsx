@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from “react”;
-
+import { useState, useRef, useEffect, useCallback } from "react";
 const C = {
 bg: “#f7f6f2”, surface: “#ffffff”, surface2: “#f2f0eb”, border: “#e0dbd2”,
 borderActive: “#b8956a”, gold: “#b8956a”, goldLight: “#faf3e8”, goldDark: “#8a6a3e”,
