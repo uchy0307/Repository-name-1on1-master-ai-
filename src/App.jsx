@@ -647,6 +647,17 @@ export default function App() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [designMsgs, roleMsgs, designLoading, roleLoading]);
 
+  // 全 button クリックでタップ音を鳴らす（既存の T() / window._tapOn を利用）
+  useEffect(() => {
+    const handler = (e) => {
+      const btn = e.target.closest("button");
+      if (!btn || btn.disabled) return;
+      T("tap");
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, []);
+
   const toggleVoice = () => { T("tap"); setVoiceOn(v => !v); };
 
   const handleVoiceInput = (setter) => {
@@ -872,7 +883,7 @@ export default function App() {
             <div style={{ fontSize: 14, fontWeight: 700, color: C.goldDark }}>1on1 マスターAI</div>
             <div style={{ fontSize: 9, color: C.textMuted }}>成功循環モデル × マズロー × AI</div>
           </div>
-          <button onClick={toggleTap} style={{ padding: "4px 7px", background: tapOn ? C.goldBg : C.surface2, border: `1px solid ${tapOn ? C.borderActive : C.border}`, borderRadius: 7, fontSize: 10, color: tapOn ? C.gold : C.textMuted, cursor: "pointer", fontWeight: 600 }}>{tapOn ? "🔔音ON" : "🔕音OFF"}</button>
+          <button onClick={toggleTap} style={{ padding: "4px 7px", background: tapOn ? C.goldLight : C.surface2, border: `1px solid ${tapOn ? C.borderActive : C.border}`, borderRadius: 7, fontSize: 10, color: tapOn ? C.gold : C.textMuted, cursor: "pointer", fontWeight: 600 }}>{tapOn ? "🔔音ON" : "🔕音OFF"}</button>
           <button onClick={() => { setScreen("home"); }} style={{ padding: "4px 8px", background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 10, color: C.textSub, cursor: "pointer" }}>🏠 ホーム</button>
           <button onClick={() => setScreen(screen === "history" ? (screen === "main" ? "main" : "persona") : "history")}
             style={{ padding: "4px 8px", background: screen === "history" ? C.goldLight : C.surface2, border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 10, color: C.textSub, cursor: "pointer" }}>
