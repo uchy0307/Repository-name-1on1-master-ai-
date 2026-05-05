@@ -461,7 +461,7 @@ const buildDesign = (p, userRole, userAge) => {
 
   return `【ペルソナ】
 あなた: ${userRole === "exec" ? "役員" : userRole === "senior" ? "シニアマネージャー" : "マネージャー"}（${userAge}歳）
-部下: ${p.ageLabel} / ${p.industry} / ${p.job} / ${p.position}（${p.ageRelation}）
+部下: ${p.name ? p.name + "さん / " : ""}${p.ageLabel} / ${p.industry} / ${p.job} / ${p.position}（${p.ageRelation}）
 家族: ${p.family}
 性格: ${p.personality.join("・")}
 状況: ${p.issue.join("・")}
@@ -673,21 +673,70 @@ export default function App() {
     } catch {}
   };
 
-  const generateSummary = async () => {
+  // 履歴データから決定論的にサマリーを生成（ローカル処理・API不要）
+  const generateSummary = () => {
     if (history.length === 0) return;
     setSummaryLoading(true);
-    const recent = [...history].slice(0, 10);
-    const userContent = `【1on1マスターAI 実施履歴サマリー】\n実施回数: ${history.length}回\n\n${recent.map((h, i) => `▼ ${h.date}（${h.persona}）\n評価: ${h.grade}（${h.score}点）\n${h.feedback?.slice(0, 150) || ""}`).join("\n\n")}`;
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800,
-          system: "あなたは1on1コーチングの専門家です。複数回の1on1ロールプレイ履歴を分析し、①成長の軌跡 ②繰り返し現れるパターン ③次に意識すべき改善点 の3点でサマリーを生成してください。300〜500字。",
-          messages: [{ role: "user", content: userContent }] }),
+
+    // すこし「分析している」感を出すため遅延（800ms）
+    setTimeout(() => {
+      const all = history;
+      const scores = all.map(h => h.score);
+
+      // ── ① 成長の軌跡（前半 vs 後半 平均比較） ──
+      let trend;
+      if (all.length < 3) {
+        trend = `まだ${all.length}回の実施。データを蓄積中です。3回以上で詳細な傾向分析が可能になります。`;
+      } else {
+        const half = Math.ceil(all.length / 2);
+        const firstAvg = scores.slice(0, half).reduce((a,b) => a+b, 0) / half;
+        const secondAvg = scores.slice(half).reduce((a,b) => a+b, 0) / (all.length - half);
+        const diff = secondAvg - firstAvg;
+        if (diff >= 8) {
+          trend = `スコアが${Math.round(firstAvg)}点→${Math.round(secondAvg)}点へ大きく向上しています。傾聴と問いかけの質が確実に伸びています。`;
+        } else if (diff >= 3) {
+          trend = `スコアが${Math.round(firstAvg)}点→${Math.round(secondAvg)}点へ着実に向上中。良いペースで成長しています。`;
+        } else if (diff <= -8) {
+          trend = `スコアが${Math.round(firstAvg)}点→${Math.round(secondAvg)}点へ低下傾向。難易度の高いペルソナに挑戦中の可能性があります。`;
+        } else if (diff <= -3) {
+          trend = `スコアが${Math.round(firstAvg)}点→${Math.round(secondAvg)}点へやや低下。新しいパターンに苦戦している可能性。`;
+        } else {
+          trend = `スコアは${Math.round(secondAvg)}点前後で安定。基礎は固まっています。次は意図的に難しい性格の部下に挑戦する段階。`;
+        }
+      }
+
+      // ── ② 繰り返し現れるパターン ──
+      const issueCount = {}, personalityCount = {};
+      all.forEach(h => {
+        if (h.issue) issueCount[h.issue] = (issueCount[h.issue] || 0) + 1;
+        if (h.personality) personalityCount[h.personality] = (personalityCount[h.personality] || 0) + 1;
       });
-      const data = await res.json();
-      setSummaryText(data.content?.[0]?.text || "");
-    } catch {} finally { setSummaryLoading(false); }
+      const topIssue = Object.entries(issueCount).sort((a,b) => b[1]-a[1])[0];
+      const topPers  = Object.entries(personalityCount).sort((a,b) => b[1]-a[1])[0];
+      const lines = [];
+      if (topIssue && topIssue[1] >= 2) lines.push(`「${topIssue[0]}」のケースに${topIssue[1]}回向き合っています。`);
+      if (topPers  && topPers[1]  >= 2) lines.push(`部下の性格は「${topPers[0]}」が頻出パターン。`);
+      if (lines.length === 0) lines.push(`様々なペルソナに偏りなく挑戦できており、対応力の幅が広がっています。`);
+      const pattern = lines.join("\n");
+
+      // ── ③ 改善ポイント ──
+      const avg = scores.reduce((a,b) => a+b, 0) / scores.length;
+      const lowest = [...all].sort((a,b) => a.score - b.score)[0];
+      let advice;
+      if (avg >= 85) {
+        advice = `平均${Math.round(avg)}点と非常に高いレベル。次の壁を越えるには「沈黙を10秒待つ」「アドバイスより共感を先に置く」を徹底すること。S評価の常連を目指せます。`;
+      } else if (avg >= 70) {
+        advice = `平均${Math.round(avg)}点。次のA+到達には「なぜ？」「ちゃんと」など評価言葉を意識的に排除し、「なるほど」「そうなんだ」の受け取りを増やすこと。`;
+      } else if (avg >= 55) {
+        advice = `平均${Math.round(avg)}点。最低点は${lowest.score}点（${lowest.persona}）。詰問より傾聴を。「教えて」「聞かせて」から始めると劇的に変わります。`;
+      } else {
+        advice = `平均${Math.round(avg)}点。アドバイス・指示・評価から始めるパターンが多そうです。「最近どう？」のオープンクエスチョンで会話を始める練習を。`;
+      }
+
+      const summary = `① 成長の軌跡\n${trend}\n\n② 繰り返し現れるパターン\n${pattern}\n\n③ 次に意識すべき改善点\n${advice}\n\n（実施${all.length}回・平均${Math.round(avg)}点・履歴データから自動分析）`;
+      setSummaryText(summary);
+      setSummaryLoading(false);
+    }, 800);
   };
 
   const togglePersona = (key, val, multi) => {
@@ -730,7 +779,7 @@ export default function App() {
     setVoicePool(pool); setUsedVoices([]);
     setDesignLoading(true);
     setTimeout(() => { setDesignMsgs([{ ai: true, text: buildDesign(fp, userRole, userAge) }]); setDesignLoading(false); }, 900);
-    setRoleMsgs([{ ai: true, text: `【ロールプレイ開始】\n${subAgeLabel}（${ageRelation?.tag}）/ ${fp.industry} / ${fp.job} / ${fp.position}\n性格: ${fp.personality.join("・")}\n状況: ${fp.issue.join("・")}\n\nこのペルソナの部下として話します。1on1を始めてください。（約10回でフィードバック）` }]);
+    setRoleMsgs([{ ai: true, text: `【ロールプレイ開始】\n${fp.name ? fp.name + "さん / " : ""}${subAgeLabel}（${ageRelation?.tag}）/ ${fp.industry} / ${fp.job} / ${fp.position}\n性格: ${fp.personality.join("・")}\n状況: ${fp.issue.join("・")}\n\nこのペルソナの部下として話します。1on1を始めてください。（約10回でフィードバック）` }]);
     setRoleCount(0); setRoleDone(false); setScreen("main");
   };
 
@@ -769,7 +818,7 @@ export default function App() {
         const cycle = SUCCESS_CYCLE.diagnose(fp.issue, fp.personality);
         const maslow = MASLOW.diagnose(fp.issue, fp.personality, fp.family);
         const fb = `【ロールプレイ フィードバック】\n\n${score.comment}\n\n━━━ 総合評価 ━━━\n${score.grade}評価　${score.label}\nスコア: ${score.score}/100点 / やり取り: ${nc}回\n\n━━━ 成功循環モデル分析 ━━━\n今回の1on1で「${cycle.label}」への働きかけができましたか？\n${cycle.desc}\n\n━━━ マズロー分析 ━━━\n部下の「${maslow.name}」を満たす言葉がけはできましたか？\n${maslow.desc}\n\n━━━ 改善ポイント ━━━\n${score.score >= 80 ? "深掘りの質問をさらに磨くと完璧です！" : score.score >= 68 ? "評価・アドバイスを減らして「聴く」に徹するとA+に届きます。" : "まず「なるほど」「そうなんだ」の受け取りを増やしてみて。"}\n\n━━━ 次の1on1で試すこと ━━━\n${cycle.action}`;
-        const rec = { date: new Date().toLocaleDateString("ja-JP"), persona: `${subAgeLabel}/${fp.job}/${fp.position}`, grade: score.grade, score: score.score, personality: fp.personality[0] || "", issue: fp.issue[0] || "", feedback: fb };
+        const rec = { date: new Date().toLocaleDateString("ja-JP"), persona: `${fp.name ? fp.name + " / " : ""}${subAgeLabel}/${fp.job}/${fp.position}`, grade: score.grade, score: score.score, personality: fp.personality[0] || "", issue: fp.issue[0] || "", feedback: fb };
         const newH = [...history, rec]; setHistory(newH); saveHistory(newH);
         setRoleMsgs(p => [...p, { ai: true, text: fb }]);
         setRoleDone(true);
@@ -789,7 +838,7 @@ export default function App() {
       `【1on1ロールプレイ 結果レポート】\n` +
       `実施日: ${new Date().toLocaleDateString("ja-JP")}\n\n` +
       `■ 部下ペルソナ\n` +
-      `${subAgeLabel}（${ageRelation?.tag}）/ ${fp.industry} / ${fp.job} / ${fp.position}\n` +
+      `${fp.name ? fp.name + "さん / " : ""}${subAgeLabel}（${ageRelation?.tag}）/ ${fp.industry} / ${fp.job} / ${fp.position}\n` +
       `性格: ${fp.personality.join("・")}\n` +
       `状況: ${fp.issue.join("・")}\n\n` +
       `■ フィードバック\n${fb}\n\n` +
@@ -893,7 +942,7 @@ export default function App() {
         {screen === "main" && (
           <>
             <div style={{ fontSize: 10, color: C.gold, marginBottom: 8, padding: "3px 8px", background: C.goldLight, borderRadius: 6, fontWeight: 600 }}>
-              👤 {subAgeLabel}（{ageRelation?.tag}）/ {persona.industry} / {persona.job}
+              👤 {persona.name ? persona.name + "さん / " : ""}{subAgeLabel}（{ageRelation?.tag}）/ {persona.industry} / {persona.job}
             </div>
             <div style={{ display: "flex" }}>
               {["🧭 トーク設計", "🎭 ロールプレイ"].map((t, i) => (
