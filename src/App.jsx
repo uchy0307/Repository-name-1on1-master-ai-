@@ -601,8 +601,14 @@ export default function App() {
   const [tab, setTab] = useState(0);
   const [tapOn, setTapOn] = useState(true);
   const tapOnRef = useRef(true);
-  const safeTab = (type) => { if (tapOnRef.current) tap(type); };
-  const toggleTap = () => { const next = !tapOnRef.current; tapOnRef.current = next; setTapOn(next); };
+  const toggleTap = () => {
+    const next = !tapOnRef.current;
+    tapOnRef.current = next;
+    window._tapOn = next;
+    setTapOn(next);
+  };
+  const [bgmOn, setBgmOn] = useState(false);
+  const toggleBGM = () => { T("tap"); setBgmOn(b => !b); };
 
   // ユーザープロフィール
   const [userAge, setUserAge] = useState(savedProfile?.age || 40);
@@ -641,7 +647,6 @@ export default function App() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [designMsgs, roleMsgs, designLoading, roleLoading]);
 
-  const toggleBGM = () => { T("tap"); setBgmOn(b => !b); };
   const toggleVoice = () => { T("tap"); setVoiceOn(v => !v); };
 
   const handleVoiceInput = (setter) => {
