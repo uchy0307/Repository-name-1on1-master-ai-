@@ -1,1 +1,38 @@
-
+{
+  "name": "1on1 マスターAI",
+  "short_name": "1on1マスター",
+  "description": "成功循環モデル × マズロー × AI で部下の本音を引き出す1on1コーチングAI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0ede8",
+  "theme_color": "#8a6030",
+  "lang": "ja",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "productivity",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
